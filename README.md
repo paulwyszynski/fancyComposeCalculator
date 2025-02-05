@@ -18,3 +18,7 @@ evaluated to get the result. The algorithm is implemented in the
 Additionally the app has a history feature that stores the last calculations in
 the reactive `DataStore`. The UI is updated whenever a new calculation is added
 to the history. Users can clear the history by clicking the delete button.
+
+![Screenshot_20250205_151536_small](https://github.com/user-attachments/assets/344caffd-b293-4a77-914b-0694be8de4a6)
+![Screenshot_20250205_151408_small](https://github.com/user-attachments/assets/e81ccd58-3ea6-43b6-a3d7-7f56cf709438)
+
