@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Fancy Calculator</string>
+    <string name="alert_dialog_button_cancel">Cancel</string>
+    <string name="alert_dialog_button_confirm">OK</string>
+    <string name="alert_dialog_history_title">Warning</string>
+    <string name="alert_dialog_history_text">History list will be wiped!</string>
+    <string name="cd_history_wipe">History Deletion</string>
+</resources>
