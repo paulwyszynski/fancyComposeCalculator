@@ -1,2 +1,20 @@
 # fancyComposeCalculator
-Implementing a small calculator with Compose architecture
+
+This project is a simple calculator that can perform basic operations like
+addition, subtraction, multiplication, division with Integers and Floating-Point
+values. It is implemented using the Model-View-ViewModel (MVVM) architecture
+pattern and Jetpack Compose UI toolkit.
+
+Furthermore it is setup with coding style guide and automated code formatting
+using ktlint and ktlint-gradle plugin. It contains a custom Compose ruleset.
+Additional rules can be found in the `.editorconfig` file in the root directory.
+
+Calculations are done with the Shunting-yard algorithm. The algorithm is used to
+convert infix expressions to postfix expressions. The postfix expression is then
+evaluated to get the result. The algorithm is implemented in the
+`CalculatorUtil` class. It supports the following operators: `+`, `-`, `*`, `/`,
+`(`. `)`.
+
+Additionally the app has a history feature that stores the last calculations in
+the reactive `DataStore`. The UI is updated whenever a new calculation is added
+to the history. Users can clear the history by clicking the delete button.
