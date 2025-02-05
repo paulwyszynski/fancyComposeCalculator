@@ -12,7 +12,7 @@ Additional rules can be found in the `.editorconfig` file in the root directory.
 Calculations are done with the Shunting-yard algorithm. The algorithm is used to
 convert infix expressions to postfix expressions. The postfix expression is then
 evaluated to get the result. The algorithm is implemented in the
-`CalculatorUtil` class. It supports the following operators: `+`, `-`, `*`, `/`,
+`CalculationUtil` class. It supports the following operators: `+`, `-`, `*`, `/`,
 `(`. `)`.
 
 Additionally the app has a history feature that stores the last calculations in
