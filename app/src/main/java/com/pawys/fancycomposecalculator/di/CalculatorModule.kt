@@ -7,7 +7,6 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.pawys.fancycomposecalculator.data.repository.LocalDataSource
 import com.pawys.fancycomposecalculator.data.repository.SavedHistoryDataSource
 import com.pawys.fancycomposecalculator.data.repository.SavedHistoryRepository
-import com.pawys.fancycomposecalculator.model.SavedHistory
 import com.pawys.fancycomposecalculator.model.SavedHistoryItem
 import dagger.Binds
 import dagger.Module
@@ -30,18 +29,18 @@ object SavedHistoryModule {
 
     @Provides
     @Singleton
-    fun provideDataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.dataStore
+    fun provideDataStore(
+        @ApplicationContext context: Context,
+    ): DataStore<Preferences> = context.dataStore
 
     @Provides
-    fun provideSavedHistoryRepository(localDataSource: LocalDataSource<SavedHistoryItem>): SavedHistoryRepository {
-        return SavedHistoryRepository(localDataSource)
-    }
+    fun provideSavedHistoryRepository(localDataSource: LocalDataSource<SavedHistoryItem>): SavedHistoryRepository =
+        SavedHistoryRepository(localDataSource)
 }
 
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class DataSourceModule {
-
     @Binds
     abstract fun bindHistoryDataSource(dataSource: SavedHistoryDataSource): LocalDataSource<SavedHistoryItem>
 }

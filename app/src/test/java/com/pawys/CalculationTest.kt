@@ -1,11 +1,51 @@
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
 package com.pawys
 
+import com.pawys.fancycomposecalculator.data.repository.SavedHistoryRepository
+import com.pawys.fancycomposecalculator.model.Action
+import com.pawys.fancycomposecalculator.model.Operand
+import com.pawys.fancycomposecalculator.ui.CalculatorViewModel
 import com.pawys.fancycomposecalculator.utils.CalculationUtil
+import io.mockk.Runs
+import io.mockk.coEvery
+import io.mockk.just
+import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
+
+/*
+INFO: Set the main dispatcher to a test dispatcher since UIThread is not available on a local JVM.
+ This is not required on instrumented tests tho where the real UIThread is available.
+ If not doing so, viewModelScope.launch will throw an exception.
+ */
+class MainDispatcherRule(
+    private val testDispatcher: TestDispatcher = StandardTestDispatcher(),
+) : TestWatcher() {
+    override fun starting(description: Description) {
+        Dispatchers.setMain(testDispatcher)
+    }
+
+    override fun finished(description: Description) {
+        Dispatchers.resetMain()
+    }
+}
 
 class CalculationTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
     @Test
     fun testIntegerOperations() {
         val calculationUtil = CalculationUtil()
@@ -124,5 +164,83 @@ class CalculationTest {
 
         result = calculationUtil.calculate("3456.789+7654.321-3210.987*2/3+234.567-123.456*2+567.890/3")
         assertEquals("9147.404", result)
+    }
+
+    @Test
+    fun testViewModel() {
+        runTest {
+            // Test some edge cases here...
+            val calculationUtil = CalculationUtil()
+            val repositoryMock = mockk<SavedHistoryRepository>()
+            coEvery { repositoryMock.save(any()) } just Runs
+            val viewModel = CalculatorViewModel(calculationUtil, repositoryMock)
+
+            viewModel.onCalculatorAction(Action.Value("1"))
+            viewModel.onCalculatorAction(Action.FloatPoint())
+            viewModel.onCalculatorAction(Action.Value("2"))
+            assertEquals("1.2", viewModel.uiState.value.outputString)
+
+            viewModel.onCalculatorAction(Action.Clear)
+            assertEquals("", viewModel.uiState.value.outputString)
+
+            viewModel.onCalculatorAction(Action.Value("1111"))
+            viewModel.onCalculatorAction(Action.Remove)
+            assertEquals("111", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Clear)
+
+            viewModel.onCalculatorAction(Action.Value("10"))
+            viewModel.onCalculatorAction(Action.Operation(Operand.Plus()))
+            viewModel.onCalculatorAction(Action.Calculation)
+            assertEquals("10+", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Clear)
+
+            viewModel.onCalculatorAction(Action.Value("10"))
+            viewModel.onCalculatorAction(Action.FloatPoint())
+            viewModel.onCalculatorAction(Action.Operation(Operand.Plus()))
+            assertEquals("10+", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Clear)
+
+            viewModel.onCalculatorAction(Action.Value("1000"))
+            viewModel.onCalculatorAction(Action.FloatPoint())
+            viewModel.onCalculatorAction(Action.Invert)
+            assertEquals("(-1000)", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Clear)
+
+            viewModel.onCalculatorAction(Action.Value("1000"))
+            viewModel.onCalculatorAction(Action.Operation(Operand.Plus()))
+            viewModel.onCalculatorAction(Action.Value("2.345"))
+            viewModel.onCalculatorAction(Action.Invert)
+            assertEquals("1000+(-2.345)", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Invert)
+            assertEquals("1000+2.345", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Clear)
+
+            viewModel.onCalculatorAction(Action.Value("1000"))
+            viewModel.onCalculatorAction(Action.Invert)
+            viewModel.onCalculatorAction(Action.Operation(Operand.Plus()))
+            viewModel.onCalculatorAction(Action.Value("2.345"))
+            viewModel.onCalculatorAction(Action.Invert)
+            assertEquals("(-1000)+(-2.345)", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Invert)
+            assertEquals("(-1000)+2.345", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Clear)
+
+            viewModel.onCalculatorAction(Action.Value("1"))
+            viewModel.onCalculatorAction(Action.Value("0"))
+            viewModel.onCalculatorAction(Action.Value("0"))
+            viewModel.onCalculatorAction(Action.Value("0"))
+            viewModel.onCalculatorAction(Action.Invert)
+            viewModel.onCalculatorAction(Action.Operation(Operand.Plus()))
+            viewModel.onCalculatorAction(Action.Value("2"))
+            viewModel.onCalculatorAction(Action.FloatPoint())
+            viewModel.onCalculatorAction(Action.Value("3"))
+            viewModel.onCalculatorAction(Action.Value("4"))
+            viewModel.onCalculatorAction(Action.Value("5"))
+            viewModel.onCalculatorAction(Action.Invert)
+            assertEquals("(-1000)+(-2.345)", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Invert)
+            assertEquals("(-1000)+2.345", viewModel.uiState.value.outputString)
+            viewModel.onCalculatorAction(Action.Clear)
+        }
     }
 }

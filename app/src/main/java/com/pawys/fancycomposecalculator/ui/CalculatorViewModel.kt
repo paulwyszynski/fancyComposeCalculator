@@ -19,6 +19,8 @@ data class CalculatorUiState(
     val savedHistoryItems: List<SavedHistoryItem> = emptyList(),
 )
 
+// TODO: Fix something like this: 13.+5
+// TODO: Fix dispatcher for testing: Use DI for dispatcher injection here. Check https://developer.android.com/kotlin/coroutines/test#setting-main-dispatcher
 @HiltViewModel
 class CalculatorViewModel
     @Inject
@@ -73,7 +75,6 @@ class CalculatorViewModel
                 is Action.Clear -> clear()
                 is Action.Remove -> remove()
             }
-            lastAction = action
         }
 
         fun onHistoryItemClick(savedHistoryItem: SavedHistoryItem) {
@@ -88,48 +89,65 @@ class CalculatorViewModel
 
         private fun addValue(value: Action.Value) {
             _uiState.update { it.copy(outputString = _uiState.value.outputString + value.number) }
+            lastAction = value
         }
 
         private fun addOperation(operation: Action.Operation) {
+            val outputString = removeAnyTrailingDecimalPoint(_uiState.value.outputString)
             if (lastAction !is Action.Operation) {
-                _uiState.update { it.copy(outputString = _uiState.value.outputString + operation.operand.symbol) }
+                _uiState.update { it.copy(outputString = outputString + operation.operand.symbol) }
+                lastAction = operation
             }
         }
 
         private fun addFloatingPoint(action: Action.FloatPoint) {
-            val isFloatingPointValue: () -> Boolean = {
-                val inputString = _uiState.value.outputString
-                val lastNumberMatch =
-                    lastNumberMatcherPositive.find(inputString) ?: lastNumberMatcherNegative.find(inputString)
-                val isFloatingValue =
-                    lastNumberMatch?.let {
-                        val lastNumberIndex = it.range.first
-                        val lastNumber = inputString.substring(lastNumberIndex)
-                        lastNumber.contains(".")
-                    } ?: false
-                isFloatingValue
-            }
+            if (lastAction !is Action.Operation && lastAction !is Action.Invert) {
+                val isFloatingPointValue = isFloatingValue(_uiState.value.outputString)
 
-            if (!isFloatingPointValue() && lastAction !is Action.FloatPoint) {
-                _uiState.update { it.copy(outputString = _uiState.value.outputString + action.symbol) }
+                if (!isFloatingPointValue && lastAction !is Action.FloatPoint) {
+                    _uiState.update { it.copy(outputString = _uiState.value.outputString + action.symbol) }
+                    lastAction = action
+                }
             }
         }
 
+        private fun isFloatingValue(outputString: String): Boolean {
+            val lastNumberMatch =
+                lastNumberMatcherPositive.find(outputString) ?: lastNumberMatcherNegative.find(outputString)
+            val isFloatingValue =
+                lastNumberMatch?.let {
+                    val lastNumberIndex = it.range.first
+                    val lastNumber = outputString.substring(lastNumberIndex)
+                    lastNumber.contains(".")
+                } ?: false
+            return isFloatingValue
+        }
+
+        private fun removeAnyTrailingDecimalPoint(outputString: String): String =
+            if (outputString.last() == '.') {
+                outputString.dropLast(1)
+            } else {
+                outputString
+            }
+
         private fun invert() {
-            val inputString = _uiState.value.outputString
-            val lastNumberMatch = lastNumberMatcherPositive.find(inputString) ?: lastNumberMatcherNegative.find(inputString)
+            val outputString = removeAnyTrailingDecimalPoint(_uiState.value.outputString)
+            val lastNumberMatch =
+                lastNumberMatcherPositive.findAll(outputString).lastOrNull()
+                    ?: lastNumberMatcherNegative.findAll(outputString).lastOrNull()
             lastNumberMatch?.let { matchResult ->
                 val lastNumberIndex = matchResult.range.first
-                val lastNumber = inputString.substring(lastNumberIndex)
+                val lastNumber = outputString.substring(lastNumberIndex)
                 val newInputString =
                     if (lastNumber.startsWith("(-") && lastNumber.endsWith(")")) {
                         // If the number is already negative, remove the parentheses and minus sign
-                        inputString.substring(0, lastNumberIndex) + lastNumber.substring(2, lastNumber.length - 1)
+                        outputString.substring(0, lastNumberIndex) + lastNumber.substring(2, lastNumber.length - 1)
                     } else {
                         // If the number is positive, add parentheses and minus sign
-                        inputString.substring(0, lastNumberIndex) + "(-" + lastNumber + ")"
+                        outputString.substring(0, lastNumberIndex) + "(-" + lastNumber + ")"
                     }
                 _uiState.update { it.copy(outputString = newInputString) }
+                lastAction = Action.Invert
             }
         }
 
@@ -137,21 +155,39 @@ class CalculatorViewModel
             firstAppStart = false
             viewModelScope.launch {
                 var outputString = _uiState.value.outputString
-                if (!validMathematicalOperationMatcher.containsMatchIn(outputString)) return@launch
+                if (!isOutputStringValid(outputString)) return@launch
 
-                while (listOf("+", "-", "*", "/", ".").contains(outputString.last().toString())) {
-                    outputString = outputString.dropLast(1)
-                }
+                outputString = removeAnyTrailingOperators(outputString)
                 val result = calculationUtil.calculate(outputString)
-                repository.save(SavedHistoryItem(outputString, result))
+                saveToRepository(outputString, result)
+                lastAction = Action.Calculation
             }
+        }
+
+        private fun isOutputStringValid(outputString: String): Boolean = validMathematicalOperationMatcher.containsMatchIn(outputString)
+
+        private fun removeAnyTrailingOperators(outputString: String): String {
+            var newOutputString = outputString
+            while (listOf("+", "-", "*", "/", ".").contains(newOutputString.last().toString())) {
+                newOutputString = newOutputString.dropLast(1)
+            }
+            return newOutputString
+        }
+
+        private suspend fun saveToRepository(
+            outputString: String,
+            result: String,
+        ) {
+            repository.save(SavedHistoryItem(outputString, result))
         }
 
         private fun remove() {
             _uiState.update { it.copy(outputString = _uiState.value.outputString.dropLast(1)) }
+            lastAction = Action.Remove
         }
 
         private fun clear() {
             _uiState.update { it.copy(outputString = "") }
+            lastAction = Action.Clear
         }
     }
